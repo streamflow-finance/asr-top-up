@@ -1,0 +1,36 @@
+name: Top up ASR pools every 6 hours
+
+on:
+  schedule:
+    # Run every 6 hours - 00:00, 06:00, 12:00, 18:00 UTC
+    - cron: '0 */6 * * *'
+
+  push:
+    tags:
+      - trigger-six-hours**
+
+  workflow_dispatch:
+    inputs:
+      dryrun:
+        description: 'Dry run (0 - false, 1 - true)'
+        required: true
+        default: '0'
+
+jobs:
+  run:
+    name: Run top up ASR pools
+    runs-on: ubuntu-latest
+    environment: main
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Top up ASR pools
+        uses: ./.github/actions/top-up-asr-pools/
+        with:
+          period-in-minutes: '360' # 6 hours
+          dryrun: ${{ github.event_name == 'schedule' && '0' || github.event.inputs.dryrun }}
+          debug-log: ${{ vars.DEBUG_LOG }}
+          rpc-url: ${{ secrets.RPC_URL }}
+          pool-configs: ${{ secrets.POOL_CONFIGS }}
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          sol-balance-warning-threshold: ${{ vars.SOL_BALANCE_WARNING_THRESHOLD }}

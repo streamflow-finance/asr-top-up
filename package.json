@@ -1,0 +1,47 @@
+{
+  "name": "asr-top-up",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx --env-file=.env --test",
+    "start": "tsx src/main.ts",
+    "format": "prettier src --write --ignore-unknown"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@jup-ag/api": "^6.0.44",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/spl-token-metadata": "^0.1.6",
+    "@solana/web3.js": "^1.98.0",
+    "@streamflow/common": "^8.2.2",
+    "@streamflow/staking": "^8.2.2",
+    "axios": "^1.11.0",
+    "bn.js": "^5.2.2",
+    "bs58": "^6.0.0",
+    "p-queue": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/node": "^24.1.0",
+    "prettier": "^3.6.2",
+    "prettier-plugin-organize-imports": "^4.2.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "resolutions": {
+    "@solana/web3.js": "1.98.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@solana/web3.js": "1.98.0"
+    }
+  },
+  "engines": {
+    "node": ">=21"
+  }
+}
