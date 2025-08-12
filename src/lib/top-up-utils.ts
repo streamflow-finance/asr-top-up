@@ -227,7 +227,7 @@ export async function estimateCompleteTransactionCost(
     throw new Error(`Simulation failed: ${JSON.stringify(simulation.value.err)}`);
   }
 
-  logger?.debug(simulation.value.logs);
+  logger?.debug('Simulation logs: \n', simulation.value.logs);
 
   // 2. Get the transaction fee using VersionedTransaction message
   const { value: totalFee } = await connection.getFeeForMessage(transaction.message);
