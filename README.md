@@ -70,7 +70,8 @@ The `POOL_CONFIGS` should be a JSON string containing an array of pool configura
     "privateKey": "your-base58-private-key-or-uint8array-string",
     "targetAPY": 5,
     "fundingPeriodMinutes": 60,
-    "feeValue": "YourPDAFromStreamflowHere"
+    "feeValue": "YourPDAFromStreamflowHere",
+    "isToken2022": true
   },
   {
     "id": "2",
@@ -79,7 +80,8 @@ The `POOL_CONFIGS` should be a JSON string containing an array of pool configura
     "privateKey": "your-base58-private-key-or-uint8array-string",
     "targetAPY": 8,
     "fundingPeriodMinutes": 360,
-    "feeValue": "YourPDAFromStreamflowHere"
+    "feeValue": "YourPDAFromStreamflowHere",
+    "isToken2022": false
   }
 ]
 ```
