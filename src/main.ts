@@ -32,9 +32,15 @@ async function processStakePool(pool: PoolConfig) {
 
   const keypair = parseKeypairSync(pool.privateKey);
 
-  const stakingPool = await fetchStakingPool(connection, pool.stakePoolAddress, pool?.feeValue);
+  const stakingPool = await fetchStakingPool(connection, pool.stakePoolAddress, pool.isToken2022, pool?.feeValue);
 
-  const funderAccounts = await fetchFunderBalances(connection, pool.privateKey, stakingPool.mint, logger);
+  const funderAccounts = await fetchFunderBalances(
+    connection,
+    pool.privateKey,
+    stakingPool.mint,
+    pool.isToken2022,
+    logger,
+  );
 
   if (funderAccounts.solAmount.lte(new BN(0))) {
     const message = `Pool ${pool.name}: Not enough SOL balance in wallet ${funderAccounts.walletPubkey.toString()} to top-up`;

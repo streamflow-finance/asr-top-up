@@ -1,4 +1,10 @@
-import { getAccount, getAssociatedTokenAddressSync, unpackMint } from '@solana/spl-token';
+import {
+  getAccount,
+  getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+  unpackMint,
+} from '@solana/spl-token';
 import { Connection, LAMPORTS_PER_SOL, PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { getFilters, isTransactionVersioned, pk } from '@streamflow/common/solana';
 import BN from 'bn.js';
@@ -10,20 +16,22 @@ import type { RewardPool, StakingPool, TransactionCostResult } from './types.js'
  * Fetch the staking pool for a given stake pool address
  * @param {Connection} connection - connection to the blockchain
  * @param {string} stakePoolAddress - stake pool address
+ * @param {boolean} isToken2022 - whether the token is a token2022 token
  * @returns {Promise<StakingPool>} staking pool
  */
 export async function fetchStakingPool(
   connection: Connection,
   stakePoolAddress: string,
+  isToken2022: boolean,
   feeValue?: string | undefined | null,
 ): Promise<StakingPool> {
   const stakePoolClient = createStakingClient();
 
   const stakePool = await stakePoolClient.account.stakePool.fetch(stakePoolAddress);
-  const mintInfo = await fetchMintInfo([stakePool.mint.toString()], connection);
+  const mintInfo = await fetchMintInfo([stakePool.mint.toString()], isToken2022, connection);
   const decimals = mintInfo.at(0)?.decimals ?? 9;
 
-  const rewardPools = await fetchRewardPools(connection, stakePoolAddress);
+  const rewardPools = await fetchRewardPools(connection, stakePoolAddress, isToken2022);
 
   return {
     rewardPools,
@@ -38,9 +46,14 @@ export async function fetchStakingPool(
  * Fetch the reward pools for a given stake pool
  * @param {Connection} connection - connection to the blockchain
  * @param {string} stakePoolAddress - stake pool address
+ * @param {boolean} isToken2022 - whether the token is a token2022 token
  * @returns {Promise<RewardPool[]>} reward pools
  */
-export async function fetchRewardPools(connection: Connection, stakePoolAddress: string): Promise<RewardPool[]> {
+export async function fetchRewardPools(
+  connection: Connection,
+  stakePoolAddress: string,
+  isToken2022: boolean,
+): Promise<RewardPool[]> {
   const rewardPoolClient = createRewardPoolDynamicClient();
 
   const rewardPools = await rewardPoolClient.account.rewardPool.all(
@@ -56,6 +69,7 @@ export async function fetchRewardPools(connection: Connection, stakePoolAddress:
 
   const mintInfo = await fetchMintInfo(
     rewardPools.map((pool) => pool.account.mint.toString()),
+    isToken2022,
     connection,
   );
 
@@ -87,6 +101,7 @@ export async function fetchRewardPools(connection: Connection, stakePoolAddress:
  * @param {Connection} connection - connection to the blockchain
  * @param {string} privateKey - private key string
  * @param {string} mint - mint address string
+ * @param {boolean} isToken2022 - whether the token is a token2022 token
  * @param {Console} logger - logger to use (optional)
  * @returns {Promise<{ walletPubkey: PublicKey; solAmount: BN; tokenAccountPubkey: PublicKey; tokenAmount: BN }>} wallet and token balances for a given funder
  */
@@ -94,16 +109,24 @@ export async function fetchFunderBalances(
   connection: Connection,
   privateKey: string,
   mint: string,
+  isToken2022: boolean,
   logger?: Console,
 ): Promise<{ walletPubkey: PublicKey; solAmount: BN; tokenAccountPubkey: PublicKey; tokenAmount: BN }> {
   const keypair = parseKeypairSync(privateKey);
 
-  const tokenAccountPubkey = getAssociatedTokenAddressSync(new PublicKey(mint), keypair.publicKey);
+  const programId = isToken2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+
+  const tokenAccountPubkey = getAssociatedTokenAddressSync(
+    new PublicKey(mint),
+    keypair.publicKey,
+    undefined,
+    programId,
+  );
 
   try {
     const [walletBalance, tokenAccount] = await Promise.all([
       connection.getBalance(keypair.publicKey),
-      getAccount(connection, tokenAccountPubkey),
+      getAccount(connection, tokenAccountPubkey, undefined, programId),
     ]);
 
     return {
@@ -127,11 +150,13 @@ export async function fetchFunderBalances(
 /**
  * Fetch the mint info for a given mint
  * @param {string[]} publicKeys - array of mint public keys
+ * @param {boolean} isToken2022 - whether the token is a token2022 token
  * @param {Connection} connection - connection to the blockchain
  * @returns {Promise<{ publicKey: string; decimals: number }[]>} mint info
  */
 export async function fetchMintInfo(
   publicKeys: string[],
+  isToken2022: boolean,
   connection: Connection,
 ): Promise<{ publicKey: string; decimals: number }[]> {
   const accounts = await connection.getMultipleAccountsInfo(publicKeys.map((key) => new PublicKey(key)));
@@ -143,7 +168,11 @@ export async function fetchMintInfo(
       }
 
       try {
-        const mint = unpackMint(new PublicKey(publicKeys[index]!), account);
+        const mint = unpackMint(
+          new PublicKey(publicKeys[index]!),
+          account,
+          isToken2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID,
+        );
 
         return {
           publicKey: mint.address.toString(),

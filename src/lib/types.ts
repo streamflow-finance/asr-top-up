@@ -9,6 +9,7 @@ export interface PoolConfig {
   targetAPY: number;
   fundingPeriodMinutes: number;
   feeValue?: string | undefined | null;
+  isToken2022: boolean;
 }
 
 export interface RewardPool {
