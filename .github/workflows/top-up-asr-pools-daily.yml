@@ -2,8 +2,8 @@ name: Top up ASR pools daily
 
 on:
   schedule:
-    # Run every day at 00:00 UTC
-    - cron: '0 0 * * *'
+    # Runs every day at 02:23 UTC to avoid peak usage hours
+    - cron: '23 2 * * *'
 
   push:
     tags:
