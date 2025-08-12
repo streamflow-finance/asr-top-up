@@ -1,4 +1,3 @@
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { invariant } from '@streamflow/common';
 import BN from 'bn.js';
@@ -99,11 +98,11 @@ async function processStakePool(pool: PoolConfig) {
     connection,
     keypair,
     keypair.publicKey,
-    TOKEN_PROGRAM_ID,
     requiredTokens.tokensNeededPerPool.map((rewardPool) => ({
       mint: rewardPool.mint,
       recipient: new PublicKey(rewardPool.poolAddress),
       amount: rewardPool.tokensNeeded,
+      isToken2022: pool.isToken2022,
     })),
     COMPUTE_PRICE,
     requiredTokens.tokensNeededPerPool.length * DEFAULT_CU,
@@ -143,12 +142,12 @@ async function processStakePool(pool: PoolConfig) {
         connection,
         keypair,
         keypair.publicKey,
-        TOKEN_PROGRAM_ID,
         requiredTokens.tokensNeededPerPool.map((rewardPool) => ({
           mint: rewardPool.mint,
           recipient: new PublicKey(rewardPool.poolAddress),
           amount: rewardPool.tokensNeeded,
           feeValue: rewardPool.feeValue,
+          isToken2022: pool.isToken2022,
         })),
         COMPUTE_PRICE,
         requiredTokens.tokensNeededPerPool.length * DEFAULT_CU,

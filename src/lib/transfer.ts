@@ -1,6 +1,7 @@
 import {
-  createAssociatedTokenAccountInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
   getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 import { Connection, Keypair, PublicKey, TransactionInstruction } from '@solana/web3.js';
@@ -56,7 +57,7 @@ export async function transferTokensToRewardPool(
 
   const program = createRewardPoolDynamicClient();
 
-  const preInstructions = await getFundPoolPreInstructions(connection, pubKey, mint);
+  const preInstructions = await getFundPoolPreInstructions(connection, pubKey, mint, programId);
 
   const fundPoolIx = await program.methods
     .fundPool(new BN(amount.toString()))
@@ -64,12 +65,11 @@ export async function transferTokensToRewardPool(
       funder: pubKey,
       from: getAssociatedTokenAddressSync(new PublicKey(mint), pubKey, true, programId),
       rewardPool: recipient,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram: programId,
     })
     .accountsPartial({
       feeValue: feeValue ?? null,
     })
-    .preInstructions(preInstructions)
     .instruction();
 
   console.log('fundPoolIx: ', fundPoolIx);
@@ -79,6 +79,7 @@ export async function transferTokensToRewardPool(
       computePrice,
       computeLimit,
     }),
+    ...preInstructions,
     fundPoolIx,
   ];
 
@@ -125,7 +126,6 @@ export async function transferTokensToRewardPool(
  * @param {Connection} connection - Solana Connection
  * @param {Keypair} keypair - Transaction Signer and Fee Payer
  * @param {PublicKey} pubKey - pubkey of the Token Account
- * @param {PublicKey} programId - Program ID of the Mint
  * @param {BatchTransferItem[]} transfers - Array of transfer details (mint, recipient, amount)
  * @param {number | undefined} computePrice - Compute Price to set for the transaction
  * @param {number | undefined} computeLimit - Compute Limit in CUs to set for the transaction
@@ -138,7 +138,6 @@ export async function batchTransferTokensToRewardPools(
   connection: Connection,
   keypair: Keypair,
   pubKey: PublicKey,
-  programId: PublicKey,
   transfers: BatchTransferItem[],
   computePrice?: number,
   computeLimit?: number,
@@ -148,16 +147,7 @@ export async function batchTransferTokensToRewardPools(
 ): Promise<string | undefined> {
   logger = logger ?? console;
 
-  const x = await prepareBatchTransaction(
-    connection,
-    keypair,
-    pubKey,
-    programId,
-    transfers,
-    computePrice,
-    computeLimit,
-    logger,
-  );
+  const x = await prepareBatchTransaction(connection, keypair, pubKey, transfers, computePrice, computeLimit, logger);
 
   if (!x) {
     logger.warn('Failed to prepare batch transaction');
@@ -215,7 +205,6 @@ export async function prepareBatchTransaction(
   connection: Connection,
   keypair: Keypair,
   pubKey: PublicKey,
-  programId: PublicKey,
   transfers: BatchTransferItem[],
   computePrice?: number,
   computeLimit?: number,
@@ -233,21 +222,25 @@ export async function prepareBatchTransaction(
   // Create all fund pool instructions
   const fundPoolInstructions: TransactionInstruction[] = [];
 
+  const preInstructionsArray: TransactionInstruction[][] = [];
+
   for (const transfer of transfers) {
-    const preInstructions = await getFundPoolPreInstructions(connection, pubKey, transfer.mint);
+    const programId = transfer.isToken2022 ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+
+    const preInstructions = await getFundPoolPreInstructions(connection, pubKey, transfer.mint, programId);
+    preInstructionsArray.push(preInstructions);
 
     const fundPoolIx = await program.methods
       .fundPool(new BN(transfer.amount.toString()))
       .accounts({
         funder: pubKey,
-        from: getAssociatedTokenAddressSync(new PublicKey(transfer.mint), pubKey, false, programId),
+        from: getAssociatedTokenAddressSync(new PublicKey(transfer.mint), pubKey, undefined, programId),
         rewardPool: transfer.recipient,
-        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgram: programId,
       })
       .accountsPartial({
         feeValue: transfer.feeValue ?? null,
       })
-      .preInstructions(preInstructions)
       .instruction();
 
     fundPoolInstructions.push(fundPoolIx);
@@ -259,6 +252,7 @@ export async function prepareBatchTransaction(
       computePrice,
       computeLimit,
     }),
+    ...preInstructionsArray.flat(),
     ...fundPoolInstructions,
   ];
 
@@ -278,29 +272,39 @@ async function getFundPoolPreInstructions(
   connection: Connection,
   pubKey: PublicKey,
   mint: string,
+  programId: PublicKey,
 ): Promise<TransactionInstruction[]> {
   const preInstructions: TransactionInstruction[] = [];
 
-  const rewardMintAccountKey = getAssociatedTokenAddressSync(new PublicKey(mint), pubKey);
+  const rewardMintAccountKey = getAssociatedTokenAddressSync(new PublicKey(mint), pubKey, true, programId);
 
   if (!(await connection.getAccountInfo(rewardMintAccountKey))) {
     preInstructions.push(
-      createAssociatedTokenAccountInstruction(pubKey, rewardMintAccountKey, pubKey, new PublicKey(mint)),
+      createAssociatedTokenAccountIdempotentInstruction(
+        pubKey,
+        rewardMintAccountKey,
+        pubKey,
+        new PublicKey(mint),
+        programId,
+      ),
     );
   }
 
   const treasuryRewardAccountKey = getAssociatedTokenAddressSync(
     new PublicKey(mint),
     new PublicKey(STREAMFLOW_TREASURY),
+    true,
+    programId,
   );
 
   if (!(await connection.getAccountInfo(treasuryRewardAccountKey))) {
     preInstructions.push(
-      createAssociatedTokenAccountInstruction(
+      createAssociatedTokenAccountIdempotentInstruction(
         pubKey,
         treasuryRewardAccountKey,
         new PublicKey(STREAMFLOW_TREASURY),
         new PublicKey(mint),
+        programId,
       ),
     );
   }

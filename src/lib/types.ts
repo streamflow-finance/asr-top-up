@@ -59,4 +59,5 @@ export interface BatchTransferItem {
   recipient: PublicKey;
   amount: BN | bigint;
   feeValue?: string | undefined | null;
+  isToken2022: boolean;
 }
