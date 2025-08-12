@@ -7,19 +7,23 @@ import bs58 from 'bs58';
  * @returns A Keypair object.
  */
 export function parseKeypairSync(privateKey: string): Keypair {
-  if (privateKey.startsWith('[')) {
-    const keyStr = JSON.parse(privateKey);
+  try {
+    if (privateKey.startsWith('[')) {
+      const keyStr = JSON.parse(privateKey);
 
-    return Keypair.fromSeed(Buffer.from(keyStr).subarray(0, 32));
+      return Keypair.fromSeed(Buffer.from(keyStr).subarray(0, 32));
+    }
+
+    const decodedKey = bs58.decode(privateKey);
+
+    const keyArr = new Uint8Array(
+      decodedKey.buffer,
+      decodedKey.byteOffset,
+      decodedKey.byteLength / Uint8Array.BYTES_PER_ELEMENT,
+    );
+
+    return Keypair.fromSecretKey(keyArr);
+  } catch (error) {
+    throw new Error('Invalid private key');
   }
-
-  const decodedKey = bs58.decode(privateKey);
-
-  const keyArr = new Uint8Array(
-    decodedKey.buffer,
-    decodedKey.byteOffset,
-    decodedKey.byteLength / Uint8Array.BYTES_PER_ELEMENT,
-  );
-
-  return Keypair.fromSecretKey(keyArr);
 }
