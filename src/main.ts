@@ -4,7 +4,7 @@ import { invariant } from '@streamflow/common';
 import BN from 'bn.js';
 import { createWriteStream } from 'fs';
 import { calculateTokensNeededForTargetAPY } from './lib/apy-token-based.js';
-import { COMPUTE_PRICE, DEFAULT_CU, PROCESS_THROTTLER, SEND_THROTTLER } from './lib/constants.js';
+import { COMPUTE_PRICE, DEFAULT_CU, SEND_THROTTLER } from './lib/constants.js';
 import { parseKeypairSync } from './lib/keypair.js';
 import { createLogger } from './lib/logger.js';
 import { notify } from './lib/notify.js';
@@ -215,9 +215,13 @@ async function main() {
 
     logger.group(`Processing ${filteredPools.length} pools for period: ${process.env.PERIOD_IN_MINUTES} minutes`);
 
-    const poolResults = await Promise.all(
-      filteredPools.map((pool) => PROCESS_THROTTLER.add(() => processStakePool(pool)) as Promise<PoolResult>),
-    );
+    const poolResults: PoolResult[] = [];
+
+    for (const pool of filteredPools) {
+      const result = await processStakePool(pool);
+
+      poolResults.push(result);
+    }
 
     // Add results to CSV
     poolResults.forEach((poolResult) => {

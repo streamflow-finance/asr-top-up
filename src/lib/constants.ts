@@ -10,7 +10,6 @@ export const DEFAULT_CU = 60_000;
 export const COMPUTE_PRICE = 1_000_000;
 
 export const SEND_THROTTLER: PQueue = buildSendThrottler(2);
-export const PROCESS_THROTTLER: PQueue = new PQueue({ concurrency: 2 });
 
 // For BN calculations as percentage can be non-whole number
 export const PRECISION_DECIMALS = 6;
