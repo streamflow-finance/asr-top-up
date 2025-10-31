@@ -224,7 +224,9 @@ export async function estimateCompleteTransactionCost(
   });
 
   if (simulation.value.err) {
-    throw new Error(`Simulation failed: ${JSON.stringify(simulation.value.err)}`);
+    logger?.error('Simulation logs: \n', simulation.value.logs);
+
+    throw new Error('Simulation failed');
   }
 
   logger?.debug('Simulation logs: \n', simulation.value.logs);
