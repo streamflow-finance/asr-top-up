@@ -9,10 +9,12 @@ import { parseKeypairSync } from './lib/keypair.js';
 import { createLogger } from './lib/logger.js';
 import { notify } from './lib/notify.js';
 import {
+  ensureWsolBalance,
   estimateCompleteTransactionCost,
   fetchFunderBalances,
   fetchStakingPool,
   fetchFunderBalancesForMint,
+  isWsolMint,
 } from './lib/top-up-utils.js';
 import { batchTransferTokensToRewardPools, prepareBatchTransaction } from './lib/transfer.js';
 import type { PoolConfig, PoolResult, RevenueBasedPoolConfig } from './lib/types.js';
@@ -270,6 +272,51 @@ async function processRevenueBasedPool(pool: RevenueBasedPoolConfig): Promise<Po
     await notify('Low SOL balance', message, logger);
   }
 
+  // Check if reward token is wSOL and if we need to wrap native SOL
+  if (isWsolMint(rewardTokenMint) && requiredTokens.totalTokensNeeded.gt(funderAccounts.tokenAmount)) {
+    logger.log(
+      `Pool ${pool.name}: wSOL balance insufficient (${funderAccounts.tokenAmount.toString()}), checking if we can wrap native SOL...`,
+    );
+
+    const wrapSuccess = await ensureWsolBalance(
+      connection,
+      keypair,
+      requiredTokens.totalTokensNeeded,
+      funderAccounts.tokenAmount,
+      funderAccounts.solAmount,
+      dryRun,
+      logger,
+    );
+
+    if (wrapSuccess) {
+      // Re-fetch balances after wrapping
+      const updatedFunderAccounts = await fetchFunderBalancesForMint(
+        connection,
+        pool.privateKey,
+        rewardTokenMint,
+        isRewardToken2022,
+        logger,
+      );
+      // Update the reference for subsequent checks
+      funderAccounts.tokenAmount = updatedFunderAccounts.tokenAmount;
+      funderAccounts.solAmount = updatedFunderAccounts.solAmount;
+      logger.log(`Pool ${pool.name}: After wrapping, wSOL balance: ${funderAccounts.tokenAmount.toString()}`);
+    } else {
+      const message = `Pool ${pool.name}: Failed to wrap SOL to wSOL. Required: ${requiredTokens.totalTokensNeeded.toString()}, wSOL Available: ${funderAccounts.tokenAmount.toString()}, Native SOL: ${funderAccounts.solAmount.toString()}`;
+      logger.error(message);
+      await notify('Insufficient balance for wSOL wrap', message, logger);
+      return {
+        id: pool.id,
+        poolName: pool.name,
+        currentStaked: stakingPool.tvl.toString(),
+        funderTokenAccountBalance: funderAccounts.tokenAmount.toString(),
+        requiredTopUp: requiredTokens.totalTokensNeeded.toString(),
+        txSignature: 'N/A',
+      };
+    }
+  }
+
+  // Final check for sufficient reward token balance
   if (requiredTokens.totalTokensNeeded.gt(funderAccounts.tokenAmount)) {
     const message = `Pool ${pool.name}: Not enough reward token balance in wallet to distribute. Required: ${requiredTokens.totalTokensNeeded.toString()}, Available: ${funderAccounts.tokenAmount.toString()}`;
     logger.error(message);
