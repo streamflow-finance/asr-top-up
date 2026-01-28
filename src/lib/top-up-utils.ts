@@ -148,6 +148,27 @@ export async function fetchFunderBalances(
 }
 
 /**
+ * Fetch the token balance for a specific mint (used for revenue-based pools where reward token differs from stake token)
+ * @param {Connection} connection - connection to the blockchain
+ * @param {string} privateKey - private key string
+ * @param {string} mint - mint address string of the reward token
+ * @param {boolean} isToken2022 - whether the reward token is a token2022 token
+ * @param {Console} logger - logger to use (optional)
+ * @returns {Promise<{ walletPubkey: PublicKey; solAmount: BN; tokenAccountPubkey: PublicKey; tokenAmount: BN }>} wallet and token balances
+ */
+export async function fetchFunderBalancesForMint(
+  connection: Connection,
+  privateKey: string,
+  mint: string,
+  isToken2022: boolean,
+  logger?: Console,
+): Promise<{ walletPubkey: PublicKey; solAmount: BN; tokenAccountPubkey: PublicKey; tokenAmount: BN }> {
+  // This is essentially the same as fetchFunderBalances but explicitly named for clarity
+  // when dealing with reward tokens that differ from stake tokens
+  return fetchFunderBalances(connection, privateKey, mint, isToken2022, logger);
+}
+
+/**
  * Fetch the mint info for a given mint
  * @param {string[]} publicKeys - array of mint public keys
  * @param {boolean} isToken2022 - whether the token is a token2022 token

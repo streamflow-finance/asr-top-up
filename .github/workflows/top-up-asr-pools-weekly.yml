@@ -1,0 +1,36 @@
+name: Top up ASR pools weekly
+
+on:
+  schedule:
+    # Runs every Monday at 03:23 UTC
+    - cron: '23 3 * * 1'
+
+  push:
+    tags:
+      - trigger-weekly**
+
+  workflow_dispatch:
+    inputs:
+      dryrun:
+        description: 'Dry run (0 - false, 1 - true)'
+        required: true
+        default: '0'
+
+jobs:
+  run:
+    name: Run top up ASR pools (weekly)
+    runs-on: ubuntu-latest
+    environment: main
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Top up ASR pools
+        uses: ./.github/actions/top-up-asr-pools/
+        with:
+          period-in-minutes: '10080' # 7 days
+          dryrun: ${{ github.event_name == 'schedule' && '0' || github.event.inputs.dryrun }}
+          debug-log: ${{ vars.DEBUG_LOG }}
+          rpc-url: ${{ secrets.RPC_URL }}
+          pool-configs: ${{ secrets.POOL_CONFIGS }}
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          sol-balance-warning-threshold: ${{ vars.SOL_BALANCE_WARNING_THRESHOLD }}
